@@ -1,14 +1,15 @@
-import type { Language } from '@/types';
+import type { AudioSettings, Language } from '@/types';
 
 export const LANGUAGES: Language[] = [
   { code: 'zh-CN', name: 'Chinese (Simplified)', nativeName: '简体中文' },
   { code: 'en-US', name: 'English', nativeName: 'English' },
 ];
 
-export const DEFAULT_AUDIO_SETTINGS = {
+export const DEFAULT_AUDIO_SETTINGS: AudioSettings = {
   volume: 80,
   speed: 1.0,
   ttsEnabled: true,
+  playbackOrder: 'sequential',
 };
 
 export const MAX_INPUT_LENGTH = 500;

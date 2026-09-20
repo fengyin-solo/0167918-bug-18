@@ -5,6 +5,9 @@ export interface Language {
   nativeName: string;
 }
 
+// 语音播报状态
+export type TtsStatus = 'pending' | 'speaking' | 'done' | 'error';
+
 // 字幕条目
 export interface SubtitleEntry {
   id: string;
@@ -12,6 +15,8 @@ export interface SubtitleEntry {
   translatedText: string;
   timestamp: Date;
   isActive: boolean;
+  // 译文播报状态（未播报过则为空）
+  ttsStatus?: TtsStatus;
 }
 
 // 翻译结果
@@ -24,11 +29,25 @@ export interface TranslationResult {
   timestamp: Date;
 }
 
+// 播报顺序偏好
+export type TtsPlaybackOrder = 'sequential' | 'latest';
+
 // 音频设置
 export interface AudioSettings {
   volume: number;
   speed: number;
   ttsEnabled: boolean;
+  playbackOrder: TtsPlaybackOrder;
+}
+
+// 语音播报队列条目
+export interface TtsQueueItem {
+  id: string;
+  text: string;
+  lang: string;
+  subtitleId?: string;
+  status: TtsStatus;
+  error?: string;
 }
 
 // 控制面板状态
@@ -91,13 +110,16 @@ export interface AppState {
   
   // 会话记录
   sessionRecords: SessionRecord[];
-  
+
+  // 语音播报队列
+  ttsQueue: TtsQueueItem[];
+
   // Actions
   setSourceLang: (lang: string) => void;
   setTargetLang: (lang: string) => void;
   toggleMic: () => void;
   setAudioSettings: (settings: Partial<AudioSettings>) => void;
-  addSubtitle: (original: string, translated: string) => void;
+  addSubtitle: (original: string, translated: string) => string;
   setCurrentSubtitle: (text: string) => void;
   setInputText: (text: string) => void;
   translate: () => Promise<void>;
@@ -106,4 +128,9 @@ export interface AppState {
   addSessionRecord: (record: Omit<SessionRecord, 'id' | 'timestamp'>) => void;
   deleteSessionRecord: (id: string) => void;
   clearSessionRecords: () => void;
+  enqueueTts: (item: { text: string; lang: string; subtitleId?: string }) => void;
+  setTtsItemStatus: (id: string, status: TtsStatus, error?: string) => void;
+  completeTtsItem: (id: string) => void;
+  retryTtsItem: (id: string) => void;
+  clearTtsQueue: () => void;
 }

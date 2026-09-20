@@ -1,9 +1,10 @@
 import { create } from 'zustand';
-import type { AppState, ToastType, AudioSettings, SessionRecord } from '@/types';
+import type { AppState, ToastType, AudioSettings, SessionRecord, TtsQueueItem } from '@/types';
 import { generateId } from '@/utils/helpers';
 import { DEFAULT_AUDIO_SETTINGS, TOAST_DURATION } from '@/utils/constants';
 
 const STORAGE_KEY = 'subtitle-translator-session-records';
+const TTS_QUEUE_KEY = 'subtitle-translator-tts-queue';
 
 const loadRecordsFromStorage = (): SessionRecord[] => {
   try {
@@ -29,6 +30,30 @@ const saveRecordsToStorage = (records: SessionRecord[]) => {
   }
 };
 
+// 加载上次未播完的队列，统一恢复为待播报，顺序保持不变
+const loadTtsQueueFromStorage = (): TtsQueueItem[] => {
+  try {
+    const stored = localStorage.getItem(TTS_QUEUE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored) as TtsQueueItem[];
+      return parsed.map(item => ({ ...item, status: 'pending', error: undefined }));
+    }
+  } catch {
+    console.error('Failed to load tts queue from storage');
+  }
+  return [];
+};
+
+// 只持久化未完成的条目（播报中的按待播报保存，刷新后会重新播报）
+const saveTtsQueueToStorage = (queue: TtsQueueItem[]) => {
+  try {
+    const unfinished = queue.filter(item => item.status === 'pending' || item.status === 'speaking');
+    localStorage.setItem(TTS_QUEUE_KEY, JSON.stringify(unfinished));
+  } catch {
+    console.error('Failed to save tts queue to storage');
+  }
+};
+
 export const useAppStore = create<AppState>((set, get) => ({
   // 控制面板状态
   sourceLang: 'zh-CN',
@@ -51,6 +76,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   
   // 会话记录
   sessionRecords: loadRecordsFromStorage(),
+
+  // 语音播报队列（恢复上次未播完的内容）
+  ttsQueue: loadTtsQueueFromStorage(),
   
   // Actions
   setSourceLang: (lang: string) => {
@@ -73,15 +101,20 @@ export const useAppStore = create<AppState>((set, get) => ({
     set(state => ({
       audioSettings: { ...state.audioSettings, ...settings },
     }));
+    // 关闭自动播放时，清空未播队列并停止当前播报
+    if (settings.ttsEnabled === false) {
+      get().clearTtsQueue();
+    }
   },
-  
+
   addSubtitle: (original: string, translated: string) => {
     const { sourceLang, targetLang } = get();
+    const id = generateId();
     set(state => ({
       subtitles: [
         ...state.subtitles.map(s => ({ ...s, isActive: false })),
         {
-          id: generateId(),
+          id,
           originalText: original,
           translatedText: translated,
           timestamp: new Date(),
@@ -97,6 +130,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       sourceLang,
       targetLang,
     });
+    return id;
   },
   
   setCurrentSubtitle: (text: string) => {
@@ -197,5 +231,71 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ sessionRecords: [] });
     saveRecordsToStorage([]);
     get().addToast('success', '所有记录已清空');
+  },
+
+  enqueueTts: ({ text, lang, subtitleId }) => {
+    const { playbackOrder } = get().audioSettings;
+    const item: TtsQueueItem = { id: generateId(), text, lang, subtitleId, status: 'pending' };
+    set(state => {
+      // 按偏好插入：顺序播报追加到队尾；最新优先插到所有待播报条目之前
+      const firstPending = state.ttsQueue.findIndex(i => i.status === 'pending');
+      const ttsQueue =
+        playbackOrder === 'latest' && firstPending !== -1
+          ? [...state.ttsQueue.slice(0, firstPending), item, ...state.ttsQueue.slice(firstPending)]
+          : [...state.ttsQueue, item];
+      saveTtsQueueToStorage(ttsQueue);
+      return {
+        ttsQueue,
+        subtitles: subtitleId
+          ? state.subtitles.map(s => (s.id === subtitleId ? { ...s, ttsStatus: 'pending' as const } : s))
+          : state.subtitles,
+      };
+    });
+  },
+
+  setTtsItemStatus: (id, status, error) => {
+    set(state => {
+      const target = state.ttsQueue.find(i => i.id === id);
+      if (!target) return state;
+      const ttsQueue = state.ttsQueue.map(i =>
+        i.id === id ? { ...i, status, error: status === 'error' ? error : undefined } : i
+      );
+      saveTtsQueueToStorage(ttsQueue);
+      return {
+        ttsQueue,
+        subtitles: target.subtitleId
+          ? state.subtitles.map(s => (s.id === target.subtitleId ? { ...s, ttsStatus: status } : s))
+          : state.subtitles,
+      };
+    });
+  },
+
+  completeTtsItem: (id) => {
+    set(state => {
+      const target = state.ttsQueue.find(i => i.id === id);
+      const ttsQueue = state.ttsQueue.filter(i => i.id !== id);
+      saveTtsQueueToStorage(ttsQueue);
+      return {
+        ttsQueue,
+        subtitles: target?.subtitleId
+          ? state.subtitles.map(s => (s.id === target.subtitleId ? { ...s, ttsStatus: 'done' as const } : s))
+          : state.subtitles,
+      };
+    });
+  },
+
+  retryTtsItem: (id) => {
+    // 保持原有队列位置，重新等待播报
+    get().setTtsItemStatus(id, 'pending');
+  },
+
+  clearTtsQueue: () => {
+    set(state => ({
+      ttsQueue: [],
+      subtitles: state.subtitles.map(s =>
+        s.ttsStatus === 'pending' || s.ttsStatus === 'speaking' ? { ...s, ttsStatus: undefined } : s
+      ),
+    }));
+    saveTtsQueueToStorage([]);
   },
 }));

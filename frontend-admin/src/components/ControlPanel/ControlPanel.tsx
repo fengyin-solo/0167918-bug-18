@@ -9,23 +9,27 @@ import {
   Settings,
   AlertCircle,
   Play,
+  ListOrdered,
 } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { Select, Slider, Toggle, Button } from '@/components/ui';
 import { LANGUAGES } from '@/utils/constants';
-import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
+import { isTtsSupported, testSpeak } from '@/utils/tts';
+import type { TtsPlaybackOrder } from '@/types';
 
 export const ControlPanel: React.FC = () => {
   const sourceLang = useAppStore(state => state.sourceLang);
   const targetLang = useAppStore(state => state.targetLang);
   const isMicOn = useAppStore(state => state.isMicOn);
   const audioSettings = useAppStore(state => state.audioSettings);
+  const ttsQueue = useAppStore(state => state.ttsQueue);
   const setSourceLang = useAppStore(state => state.setSourceLang);
   const setTargetLang = useAppStore(state => state.setTargetLang);
   const toggleMic = useAppStore(state => state.toggleMic);
   const setAudioSettings = useAppStore(state => state.setAudioSettings);
 
-  const { testSpeak, isSupported: ttsSupported } = useSpeechSynthesis();
+  const ttsSupported = isTtsSupported();
+  const pendingCount = ttsQueue.filter(item => item.status === 'pending').length;
 
   const languageOptions = LANGUAGES.map(lang => ({
     value: lang.code,
@@ -165,6 +169,23 @@ export const ControlPanel: React.FC = () => {
           onChange={value => setAudioSettings({ speed: value })}
           icon={<Gauge className="w-4 h-4" />}
         />
+
+        <Select
+          label="播报顺序"
+          value={audioSettings.playbackOrder}
+          options={[
+            { value: 'sequential', label: '按识别顺序逐条播报' },
+            { value: 'latest', label: '最新内容优先播报' },
+          ]}
+          onChange={value => setAudioSettings({ playbackOrder: value as TtsPlaybackOrder })}
+          icon={<ListOrdered className="w-4 h-4" />}
+        />
+
+        {pendingCount > 0 && (
+          <p className="text-xs text-dark-500">
+            队列中还有 {pendingCount} 条待播报
+          </p>
+        )}
 
         <Button
           variant="secondary"
