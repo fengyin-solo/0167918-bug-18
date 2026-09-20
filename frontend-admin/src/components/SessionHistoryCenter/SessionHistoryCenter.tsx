@@ -14,7 +14,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
-import { Button } from '@/components/ui';
+import { Button, SpeechControlButton } from '@/components/ui';
 import { LANGUAGES } from '@/utils/constants';
 import { formatTime, getLanguageDisplayName, truncateText } from '@/utils/helpers';
 import type { SessionRecord, SessionRecordType } from '@/types';
@@ -351,17 +351,24 @@ export const SessionHistoryCenter: React.FC<{ onClose: () => void }> = ({ onClos
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-primary-400">译文</span>
-                    <button
-                      onClick={() => handleCopy(selectedRecord.targetText, `target-${selectedRecord.id}`)}
-                      className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
-                      title="复制译文"
-                    >
-                      {copiedId === `target-${selectedRecord.id}` ? (
-                        <Check className="w-4 h-4 text-accent-green" />
-                      ) : (
-                        <Copy className="w-4 h-4 text-dark-500" />
-                      )}
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <SpeechControlButton
+                        text={selectedRecord.targetText}
+                        lang={selectedRecord.targetLang}
+                        refId={selectedRecord.id}
+                      />
+                      <button
+                        onClick={() => handleCopy(selectedRecord.targetText, `target-${selectedRecord.id}`)}
+                        className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+                        title="复制译文"
+                      >
+                        {copiedId === `target-${selectedRecord.id}` ? (
+                          <Check className="w-4 h-4 text-accent-green" />
+                        ) : (
+                          <Copy className="w-4 h-4 text-dark-500" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                   <div className="glass-card p-4 border-l-2 border-primary-500">
                     <p className="text-dark-100 whitespace-pre-wrap break-words leading-relaxed">
@@ -456,16 +463,23 @@ export const SessionHistoryCenter: React.FC<{ onClose: () => void }> = ({ onClos
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-primary-400">译文</span>
-                  <button
-                    onClick={() => handleCopy(selectedRecord.targetText, `target-m-${selectedRecord.id}`)}
-                    className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
-                  >
-                    {copiedId === `target-m-${selectedRecord.id}` ? (
-                      <Check className="w-4 h-4 text-accent-green" />
-                    ) : (
-                      <Copy className="w-4 h-4 text-dark-500" />
-                    )}
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <SpeechControlButton
+                      text={selectedRecord.targetText}
+                      lang={selectedRecord.targetLang}
+                      refId={selectedRecord.id}
+                    />
+                    <button
+                      onClick={() => handleCopy(selectedRecord.targetText, `target-m-${selectedRecord.id}`)}
+                      className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+                    >
+                      {copiedId === `target-m-${selectedRecord.id}` ? (
+                        <Check className="w-4 h-4 text-accent-green" />
+                      ) : (
+                        <Copy className="w-4 h-4 text-dark-500" />
+                      )}
+                    </button>
+                  </div>
                 </div>
                 <div className="glass-card p-4 border-l-2 border-primary-500">
                   <p className="text-dark-100 whitespace-pre-wrap break-words leading-relaxed">

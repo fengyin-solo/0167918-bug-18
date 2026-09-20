@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { Subtitles, Clock } from 'lucide-react';
+import { Subtitles, Clock, Square, RotateCw, AlertCircle } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
+import { ttsEngine } from '@/utils/tts';
 import { formatTime } from '@/utils/helpers';
 import { SubtitleItem } from './SubtitleItem';
 
@@ -8,6 +9,15 @@ export const SubtitleDisplay: React.FC = () => {
   const subtitles = useAppStore(state => state.subtitles);
   const currentSubtitle = useAppStore(state => state.currentSubtitle);
   const isMicOn = useAppStore(state => state.isMicOn);
+  const pendingCount = useAppStore(
+    state => state.speechQueue.filter(item => item.status === 'pending').length,
+  );
+  const speakingCount = useAppStore(
+    state => state.speechQueue.filter(item => item.status === 'speaking').length,
+  );
+  const failedItems = useAppStore(state =>
+    state.speechQueue.filter(item => item.status === 'error'),
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // 自动滚动到底部
@@ -76,15 +86,51 @@ export const SubtitleDisplay: React.FC = () => {
 
       {/* 底部状态栏 */}
       <footer className="px-6 py-3 border-t border-white/10 bg-dark-900/50">
-        <div className="flex items-center justify-between text-xs text-dark-500">
+        <div className="flex items-center justify-between gap-3 text-xs text-dark-500">
           <span>共 {subtitles.length} 条字幕</span>
-          <div className="flex items-center gap-2">
-            <span
-              className={`w-2 h-2 rounded-full ${
-                isMicOn ? 'bg-accent-green animate-pulse' : 'bg-dark-600'
-              }`}
-            />
-            <span>{isMicOn ? '实时识别中' : '等待开始'}</span>
+
+          {/* 播报队列状态 */}
+          <div className="flex items-center gap-3">
+            {(speakingCount > 0 || pendingCount > 0) && (
+              <span className="inline-flex items-center gap-1.5 text-primary-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary-400 animate-pulse" />
+                {speakingCount > 0 ? '播报中' : '排队中'}
+                {pendingCount > 0 ? ` · 待播 ${pendingCount} 条` : ''}
+                <button
+                  type="button"
+                  onClick={() => ttsEngine.stop()}
+                  title="停止播报并清空队列"
+                  className="ml-1 p-1 rounded hover:bg-white/10 hover:text-dark-200 transition-colors"
+                >
+                  <Square className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {failedItems.length > 0 && (
+              <span className="inline-flex items-center gap-1.5 text-accent-yellow">
+                <AlertCircle className="w-3.5 h-3.5" />
+                {failedItems.length} 条播报失败
+                <button
+                  type="button"
+                  onClick={() => failedItems.forEach(item => ttsEngine.retry(item.id))}
+                  title="重新将失败条目加入队列"
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-accent-yellow/10 transition-colors"
+                >
+                  <RotateCw className="w-3 h-3" />
+                  全部重试
+                </button>
+              </span>
+            )}
+
+            <div className="flex items-center gap-2">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isMicOn ? 'bg-accent-green animate-pulse' : 'bg-dark-600'
+                }`}
+              />
+              <span>{isMicOn ? '实时识别中' : '等待开始'}</span>
+            </div>
           </div>
         </div>
       </footer>

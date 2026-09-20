@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { History } from 'lucide-react';
 import { ControlPanel } from '@/components/ControlPanel';
 import { SubtitleDisplay } from '@/components/SubtitleDisplay';
@@ -6,14 +6,18 @@ import { TranslationPanel } from '@/components/TranslationPanel';
 import { SessionHistoryCenter } from '@/components/SessionHistoryCenter';
 import { ToastContainer } from '@/components/ui';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
+import { ttsEngine } from '@/utils/tts';
 import { useAppStore } from '@/store/useAppStore';
 
 const App: React.FC = () => {
   const [showHistory, setShowHistory] = useState(false);
   const sessionRecords = useAppStore(state => state.sessionRecords);
 
-  // 初始化语音识别（内部已集成TTS播报）
+  // 初始化语音识别与统一语音播报引擎（内部负责队列与设置生效）
   useSpeechRecognition();
+  useEffect(() => {
+    ttsEngine.init();
+  }, []);
 
   return (
     <div className="min-h-screen h-screen w-full flex flex-col p-4 md:p-6 box-border">
